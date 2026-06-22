@@ -1,180 +1,206 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Event Stream Viewer</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: sans-serif; background: #f5f5f5; padding: 24px; color: #222; }
-    h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
-    .subtitle { font-size: 13px; color: #666; margin-bottom: 20px; }
-    .controls { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
-    input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 200px; }
-    button { padding: 8px 18px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; }
-    button:hover { background: #f0f0f0; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-    .stat { background: #fff; border-radius: 10px; padding: 14px 16px; border: 0.5px solid #e0e0e0; }
-    .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
-    .stat-value { font-size: 22px; font-weight: 500; }
-    .events { display: flex; flex-direction: column; gap: 10px; }
-    .event-card { background: #fff; border-radius: 10px; border: 0.5px solid #e0e0e0; padding: 14px 16px; }
-    .event-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-    .event-name { font-size: 14px; font-weight: 500; }
-    .badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-    .badge-blue { background: #e6f0fb; color: #185fa5; }
-    .badge-purple { background: #eeedfe; color: #534ab7; }
-    .seq { font-size: 11px; color: #999; margin-bottom: 8px; }
-    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
-    .field { font-size: 13px; }
-    .field-label { color: #888; font-size: 11px; }
-    .field-value { color: #222; font-weight: 500; word-break: break-all; }
-    .status { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid #eee; font-size: 12px; color: #888; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: #f5a623; display: inline-block; }
-    .dot.done { background: #4caf50; }
-    #status-bar { font-size: 13px; color: #666; margin-bottom: 12px; min-height: 20px; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQL Runner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #0d0d0d; color: #e2e2e2; min-height: 100vh; display: flex; flex-direction: column; }
+
+  header { padding: 1rem 1.5rem; border-bottom: 1px solid #1f1f1f; display: flex; align-items: center; gap: 10px; }
+  header span { font-size: 13px; color: #555; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; }
+
+  .editor-area { padding: 1.5rem; display: flex; flex-direction: column; gap: 12px; }
+
+  textarea {
+    width: 100%;
+    height: 140px;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 6px;
+    color: #e2e2e2;
+    font-family: monospace;
+    font-size: 14px;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: #333; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; }
+
+  button {
+    background: #e2e2e2;
+    color: #0d0d0d;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 18px;
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  button:hover { background: #fff; }
+  button:active { background: #ccc; }
+  button:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+
+  .btn-clear { background: transparent; color: #555; border: 1px solid #222; }
+  .btn-clear:hover { background: #1a1a1a; color: #e2e2e2; }
+
+  .status { font-size: 12px; color: #555; margin-left: auto; }
+  .status.ok { color: #22c55e; }
+  .status.err { color: #ef4444; }
+  .status.loading { color: #facc15; }
+
+  .result-area { flex: 1; padding: 0 1.5rem 1.5rem; }
+
+  .result-meta { font-size: 12px; color: #555; margin-bottom: 10px; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid #1f1f1f; border-radius: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #161616; border-bottom: 1px solid #222; }
+  th { padding: 9px 14px; text-align: left; color: #888; font-weight: 500; white-space: nowrap; }
+  td { padding: 8px 14px; border-bottom: 1px solid #1a1a1a; color: #d1d1d1; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #111; }
+
+  .null-val { color: #444; font-style: italic; }
+
+  .empty-state { text-align: center; padding: 3rem; color: #333; font-size: 13px; }
+
+  .error-box { background: #1a0a0a; border: 1px solid #3a1a1a; border-radius: 6px; padding: 12px 16px; color: #ef4444; font-size: 13px; line-height: 1.6; }
+
+  .json-box { background: #111; border: 1px solid #222; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: #a3e635; overflow-x: auto; white-space: pre; }
+</style>
 </head>
 <body>
-  <h1>Event Stream Viewer</h1>
-  <p class="subtitle">Connects to your SSE endpoint and displays events in real time</p>
 
-  <div class="controls">
-    <input id="sid" placeholder="stream id (e.g. test)" value="test" />
-    <input id="offset" placeholder="offset" value="-1" style="width:100px" />
-    <button onclick="connect()">Connect ↗</button>
-    <button onclick="clearAll()" style="color:#c0392b">Clear</button>
+<header>
+  <span class="dot"></span>
+  <span>localhost:3000/query</span>
+</header>
+
+<div class="editor-area">
+  <textarea id="query" placeholder="SELECT * FROM users LIMIT 10;" spellcheck="false">SELECT * FROM users LIMIT 10;</textarea>
+  <div class="toolbar">
+    <button id="run-btn" onclick="runQuery()">▶ Run</button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+    <span class="status" id="status"></span>
   </div>
+</div>
 
-  <div id="status-bar">Not connected.</div>
+<div class="result-area" id="result-area">
+  <div class="empty-state">Run a query to see results</div>
+</div>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-label">Total events</div>
-      <div class="stat-value" id="count">0</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">B2B partner mappings</div>
-      <div class="stat-value" id="b2b-count">0</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Stock item mappings</div>
-      <div class="stat-value" id="stock-count">0</div>
-    </div>
-  </div>
+<script>
+const API = 'https://20.87.39.192/sync/api/query';
 
-  <div class="events" id="events"></div>
+async function runQuery() {
+  const sql = document.getElementById('query').value.trim();
+  if (!sql) return;
 
-  <script>
-    let es;
-    let total = 0, b2b = 0, stock = 0;
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('status');
+  const area = document.getElementById('result-area');
 
-    function connect() {
-      if (es) es.close();
-      clearAll();
+  btn.disabled = true;
+  status.className = 'status loading';
+  status.textContent = 'Running…';
+  area.innerHTML = '';
 
-      const sid = document.getElementById("sid").value.trim();
-      const offset = document.getElementById("offset").value.trim();
-      const url = `http://20.87.39.196/api/sync/${sid}?offset=${offset}`;
+  const t0 = Date.now();
 
-      document.getElementById("status-bar").textContent = `Connecting to ${url}...`;
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: sql })
+    });
 
-      es = new EventSource(url);
+    const elapsed = Date.now() - t0;
+    const data = await res.json();
 
-      es.onmessage = (e) => {
-        try {
-          const row = JSON.parse(e.data);
-          renderEvent(row);
-        } catch {}
-      };
-
-      es.addEventListener("done", () => {
-        document.getElementById("status-bar").textContent = `Stream complete. ${total} events received.`;
-        es.close();
-      });
-
-      es.onerror = () => {
-        document.getElementById("status-bar").textContent = "Connection closed or error.";
-        es.close();
-      };
-
-      es.onopen = () => {
-        document.getElementById("status-bar").textContent = `Connected. Receiving events...`;
-      };
+    if (!res.ok) {
+      status.className = 'status err';
+      status.textContent = `Error ${res.status}`;
+      area.innerHTML = `<div class="error-box">${escHtml(data.error || data.message || JSON.stringify(data))}</div>`;
+      return;
     }
 
-    function renderEvent(row) {
-      total++;
-      const isB2B = row.event_name === "v1.CreateB2BBusinessPartnerMapping";
-      const isStock = row.event_name === "v1.CreateStockItemMapping";
-      if (isB2B) b2b++;
-      if (isStock) stock++;
+    // Try to render as table — support common shapes:
+    // { rows: [...] } or { data: [...] } or [...] directly
+    const rows = Array.isArray(data) ? data
+      : Array.isArray(data.rows) ? data.rows
+      : Array.isArray(data.data) ? data.data
+      : null;
 
-      document.getElementById("count").textContent = total;
-      document.getElementById("b2b-count").textContent = b2b;
-      document.getElementById("stock-count").textContent = stock;
+    if (rows && rows.length > 0) {
+      const cols = Object.keys(rows[0]);
+      const rowCount = rows.length;
 
-      const args = row.args || {};
-      const created = new Date(row.created_at).toLocaleString();
+      status.className = 'status ok';
+      status.textContent = `${rowCount} row${rowCount !== 1 ? 's' : ''} · ${elapsed}ms`;
 
-      const card = document.createElement("div");
-      card.className = "event-card";
+      area.innerHTML = `
+        <div class="result-meta">${rowCount} row${rowCount !== 1 ? 's' : ''} returned in ${elapsed}ms</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${rows.map(row =>
+                `<tr>${cols.map(c => {
+                  const v = row[c];
+                  return v === null || v === undefined
+                    ? `<td><span class="null-val">NULL</span></td>`
+                    : `<td>${escHtml(String(v))}</td>`;
+                }).join('')}</tr>`
+              ).join('')}
+            </tbody>
+          </table>
+        </div>`;
 
-      if (isB2B) {
-        card.innerHTML = `
-          <div class="event-header">
-            <div class="event-name">B2B Business Partner Mapping</div>
-            <span class="badge badge-blue">${row.stream_id}</span>
-          </div>
-          <div class="seq">seq #${row.seqnum} &nbsp;·&nbsp; ${created}</div>
-          <div class="fields">
-            <div class="field"><div class="field-label">Buyer name</div><div class="field-value">${args.buyerName || '—'}</div></div>
-            <div class="field"><div class="field-label">Order ID</div><div class="field-value">${args.orderId || '—'}</div></div>
-            <div class="field"><div class="field-label">Buyer GST</div><div class="field-value">${args.buyerGST || '—'}</div></div>
-            <div class="field"><div class="field-label">State</div><div class="field-value">${args.state || '—'}</div></div>
-            <div class="field"><div class="field-label">Marketplace</div><div class="field-value">${args.marketplace || '—'}</div></div>
-            <div class="field"><div class="field-label">Company DB</div><div class="field-value">${args.companyDB || '—'}</div></div>
-          </div>
-          <div class="status"><span class="dot"></span> Pending</div>
-        `;
-      } else if (isStock) {
-        card.innerHTML = `
-          <div class="event-header">
-            <div class="event-name">Stock Item Mapping</div>
-            <span class="badge badge-purple">${row.stream_id}</span>
-          </div>
-          <div class="seq">seq #${row.seqnum} &nbsp;·&nbsp; ${created}</div>
-          <div class="fields">
-            <div class="field"><div class="field-label">SKU</div><div class="field-value">${args.sku || '—'}</div></div>
-            <div class="field"><div class="field-label">Marketplace</div><div class="field-value">${args.marketplace || '—'}</div></div>
-            <div class="field"><div class="field-label">GST %</div><div class="field-value">${args.gst || '—'}%</div></div>
-            <div class="field"><div class="field-label">HSN</div><div class="field-value">${args.hsn || '—'}</div></div>
-            <div class="field"><div class="field-label">Serial managed</div><div class="field-value">${args.isSerialManaged ? 'Yes' : 'No'}</div></div>
-            <div class="field"><div class="field-label">Serial numbers</div><div class="field-value">${(args.serialNumbers || []).join(', ') || '—'}</div></div>
-          </div>
-          <div class="status"><span class="dot"></span> Pending</div>
-        `;
-      } else {
-        card.innerHTML = `
-          <div class="event-header">
-            <div class="event-name">${row.event_name}</div>
-            <span class="badge badge-blue">${row.stream_id}</span>
-          </div>
-          <div class="seq">seq #${row.seqnum} &nbsp;·&nbsp; ${created}</div>
-          <pre style="font-size:12px;color:#555;white-space:pre-wrap">${JSON.stringify(args, null, 2)}</pre>
-        `;
-      }
+    } else if (rows && rows.length === 0) {
+      status.className = 'status ok';
+      status.textContent = `0 rows · ${elapsed}ms`;
+      area.innerHTML = `<div class="empty-state">Query returned 0 rows</div>`;
 
-      document.getElementById("events").prepend(card);
+    } else {
+      // Non-select response (INSERT/UPDATE/DELETE etc.)
+      status.className = 'status ok';
+      status.textContent = `Done · ${elapsed}ms`;
+      area.innerHTML = `<div class="json-box">${JSON.stringify(data, null, 2)}</div>`;
     }
 
-    function clearAll() {
-      total = 0; b2b = 0; stock = 0;
-      document.getElementById("count").textContent = 0;
-      document.getElementById("b2b-count").textContent = 0;
-      document.getElementById("stock-count").textContent = 0;
-      document.getElementById("events").innerHTML = "";
-      document.getElementById("status-bar").textContent = "Not connected.";
-    }
-  </script>
+  } catch (err) {
+    status.className = 'status err';
+    status.textContent = 'Failed';
+    area.innerHTML = `<div class="error-box">Could not reach API: ${escHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function clearAll() {
+  document.getElementById('query').value = '';
+  document.getElementById('result-area').innerHTML = '<div class="empty-state">Run a query to see results</div>';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('query').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runQuery();
+});
+</script>
 </body>
 </html>
